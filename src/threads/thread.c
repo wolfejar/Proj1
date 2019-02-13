@@ -71,6 +71,7 @@ static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 
+
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
    general and it is possible in this case only because loader.S
@@ -171,7 +172,7 @@ thread_create (const char *name, int priority,
   struct switch_entry_frame *ef;
   struct switch_threads_frame *sf;
   tid_t tid;
-
+  
   ASSERT (function != NULL);
 
   /* Allocate thread. */
@@ -198,6 +199,8 @@ thread_create (const char *name, int priority,
   sf->eip = switch_entry;
   sf->ebp = 0;
 
+  t->ticks_blocked = 0;
+  
   /* Add to run queue. */
   thread_unblock (t);
 
@@ -240,6 +243,33 @@ thread_unblock (struct thread *t)
   list_push_back (&ready_list, &t->elem);
   t->status = THREAD_READY;
   intr_set_level (old_level);
+}
+
+/*  Invoke function 'func' on all threads, passing along 'aux'.
+    This function must be called with interrupts off.  */
+void
+thread_foreach (thread_action_func *func, void *aux) {
+	struct list_elem *e;
+
+	ASSERT (intr_get_level () == INTR_OFF);
+
+	for (e = list_begin (&all_list); e != list_end (&all_list); e = list_next (e))
+    {
+      struct thread *t = list_entry (e, struct thread, allelem);
+      func (t, aux);
+    }
+}
+
+void
+blocked_thread_check(struct thread *t, void *aux UNUSED) {
+	if (t->status == THREAD_BLOCKED && t->ticks_blocked > 0  )
+	{
+		t->ticks_blocked-- ;
+		if (t->ticks_blocked == 0)
+		{
+			thread_unblock(t);
+		}
+	}
 }
 
 /* Returns the name of the running thread. */
@@ -312,23 +342,6 @@ thread_yield (void)
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
-}
-
-/* Invoke function 'func' on all threads, passing along 'aux'.
-   This function must be called with interrupts off. */
-void
-thread_foreach (thread_action_func *func, void *aux)
-{
-  struct list_elem *e;
-
-  ASSERT (intr_get_level () == INTR_OFF);
-
-  for (e = list_begin (&all_list); e != list_end (&all_list);
-       e = list_next (e))
-    {
-      struct thread *t = list_entry (e, struct thread, allelem);
-      func (t, aux);
-    }
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
