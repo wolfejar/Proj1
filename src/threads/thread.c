@@ -15,10 +15,14 @@
 #include "userprog/process.h"
 #endif
 
+int base_priority;
+struct list locks;
+struct lock *lock_waiting;
+
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
-#define THREAD_MAGIC 0xcd6abf4b
+#define THREAD_MAGIC 0xcd6abf4b;
 
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
@@ -347,8 +351,22 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority)
 {
-  thread_current ()->priority = new_priority;
-  thread_yield();
+  /*Added code*/
+  if(thread_mlfqs) return;
+
+  enum intr_level old_level = intr_disable();
+
+  struct thread *current_thread = thread_current();
+  int old_priority = current_thread->priority;
+  current_thread->base_priority = new_priority;
+
+  if (list_empty (&current_thread->locks) || new_priority > old_priority)
+  {
+    current_thread->priority = new_priority;
+    thread_yield ();
+  }
+
+  intr_set_level (old_level);
 }
 
 /* Returns the current thread's priority. */
@@ -477,6 +495,11 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
 
+  //Added codes
+  t->base_priority = priority;
+  list_init(&t->locks);
+  t->lock_waiting = NULL;
+
   old_level = intr_disable ();
   //list_push_back (&all_list, &t->allelem);
   list_insert_ordered (&all_list, &t->allelem, (list_less_func *) &thread_cmp_priority, NULL);
@@ -592,6 +615,57 @@ allocate_tid (void)
   lock_release (&tid_lock);
 
   return tid;
+}
+
+// Added methods
+void
+thread_hold_the_lock(struct lock *lock){
+  enum intr_level old_level = intr_disable();
+  list_insert_ordered(&thread_current()->locks, &lock->elem, lock_cmp_priority, NULL);
+
+  if(lock->max_priority > thread_current()->priority){
+    thread_current ()->priority = lock->max_priority;
+    thread_yield();
+  }
+
+  intr_set_level(old_level);
+}
+
+void thread_donate_priority (struct thread *t) {
+  /* code */
+  enum intr_level old_level = intr_disable();
+  thread_update_priority(t);
+
+  if(t->status == THREAD_READY){
+    list_remove (&t->elem);
+    list_insert_ordered(&ready_list, &t->elem, thread_cmp_priority, NULL);
+  }
+  intr_set_level(old_level);
+}
+
+void thread_remove_lock(struct lock *lock) {
+  enum intr_level old_level = intr_disable();
+  list_remove(&lock->elem);
+  thread_update_priority(thread_current());
+  intr_set_level(old_level);
+}
+
+// Update priority
+void thread_update_priority(struct thread *t) {
+  /* code */
+  enum intr_level old_level = intr_disable();
+  int max_priority = t->base_priority;
+  int lock_priority;
+
+  if(!list_empty(&t->locks)){
+    list_sort(&t->locks, lock_cmp_priority, NULL);
+    lock_priority = list_entry(list_front(&t->locks),  struct lock, elem)->max_priority;
+    if(lock_priority > max_priority)
+      max_priority = lock_priority;
+  }
+
+  t->priority = max_priority;
+  intr_set_level(old_level);
 }
 
 /* Offset of `stack' member within `struct thread'.

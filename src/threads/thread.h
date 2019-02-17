@@ -90,6 +90,10 @@ struct thread
     int priority;                       /* Priority. */
     struct list_elem allelem;           /* List element for all threads list. */
 
+    int base_priority;
+    struct list locks;
+    struct lock *lock_waiting;
+
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
@@ -119,7 +123,7 @@ tid_t thread_create (const char *name, int priority, thread_func *, void *);
 void thread_block (void);
 void thread_unblock (struct thread *);
 
-bool thread_cmp_priority(const struct list_elem * , const struct list_elem * , void *);
+bool thread_cmp_priority(const struct list_elem * , const struct list_elem * , void *aux UNUSED);
 
 struct thread *thread_current (void);
 tid_t thread_tid (void);
@@ -139,5 +143,10 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+void thread_hold_the_lock (struct lock *);
+void thread_remove_lock (struct lock *);
+void thread_donate_priority (struct thread *);
+void thread_update_priority (struct thread *);
 
 #endif /* threads/thread.h */
