@@ -89,8 +89,14 @@ struct thread
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
     struct list_elem allelem;           /* List element for all threads list. */
-	// Time the thread has been blocked
-	int64_t ticks_blocked;
+
+    int base_priority;
+    struct list locks;
+    struct lock *lock_waiting;
+
+    // Time the thread has been blocked
+    int64_t ticks_blocked;
+
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
@@ -122,6 +128,8 @@ void thread_unblock (struct thread *);
 
 void blocked_thread_check(struct thread *t, void *aux UNUSED);
 
+bool thread_cmp_priority(const struct list_elem * , const struct list_elem * , void *aux UNUSED);
+
 struct thread *thread_current (void);
 tid_t thread_tid (void);
 const char *thread_name (void);
@@ -140,5 +148,10 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+void thread_hold_the_lock (struct lock *);
+void thread_remove_lock (struct lock *);
+void thread_donate_priority (struct thread *);
+void thread_update_priority (struct thread *);
 
 #endif /* threads/thread.h */
