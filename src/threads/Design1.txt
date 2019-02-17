@@ -6,9 +6,7 @@ CIS 520 - Programming Project #1
 
 >> Fill in the names and email addresses of your group members.
 
-FirstName LastName <email@k-state.edu>
-FirstName LastName <email@k-state.edu>
-...
+Jared Wolfe wolfejar@ksu.edu
 
 ---- PRELIMINARIES ----
 
@@ -29,14 +27,42 @@ FirstName LastName <email@k-state.edu>
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+struct thread {
+int64_t ticks_blocked;
+}
+This is an attribute which simply stores the total amount of ticks for which the 
+thread should be blocked.
+
 
 ---- ALGORITHMS ----
 
 >> A2: Briefly describe what happens in a call to your timer_sleep(),
 >> including the effects of the timer interrupt handler.
 
+When timer_sleep() is called, the function first checks the ticks argument to ensure it
+is positive.  Then, an assertion checks the current setting for interrupts to ensure they
+are enabled. An enumeration of the old interrupt level is set to the value returned when
+using the intr_disable() function. This disables interrupts and returns an enum indicating what the interrupt level was
+Set to before.  A pointer to a thread struct is created by calling thread_current().
+This simply returns a struct representing the currently running thread.  We set the ticks_blocked attribute,
+which was created for this purpose, to the given number of ticks specified by the argument to the function.
+thread_block() is called, setting the status of the thread to blocked and calling schedule() wich decides upon
+the next thread to run. 
+
+We add a call to thread_foreach() to the timer_interrupt() function, which is called on every
+system tick.  A pointer to a new function, blocked_thread_check(), is the argument for this thread_foreach()
+call.  blocked_thread_check() checks the current status and blocked ticks of the given thread in the argument.  
+It decrements the ticks blocked as this is called on every tick, then checks if the ticks ==0, and unblocks
+the thread accordingly.
+
+After this is complete, we return to the next line after thread_block() in timer_sleep(). This sets the interrupt level
+back to whatever it was before disabling interrupts for this function.
+
 >> A3: What steps are taken to minimize the amount of time spent in
 >> the timer interrupt handler?
+Some processing must be done within the interrupt handler in order to check for blocked threads.  This implementation iterates
+through every thread, decrementing the blocked time if it is currently blocked.  This is less efficient than creating an ordered
+list of sleeping threads and stopping once reaching a thread which has not reached its wakeup time.  Currently, our solution runs in O(number of threads), which may be problematic depending on the number of total threads.  
 
 
 ---- SYNCHRONIZATION ----
@@ -44,9 +70,22 @@ FirstName LastName <email@k-state.edu>
 >> A4: How are race conditions avoided when multiple threads call
 >> timer_sleep() simultaneously?
 
+The call to thread_current() within timer_sleep() accounts for seperate calls to
+the functions by different threads.  The thread_current() function includes assertions
+to ensure the thread being returned is running.  thread_block() includes a call to schedule(), which now
+ensures the current thread is not running before deciding which thread to run currently. Interrupts are also
+ensured to be disabled in both of these methods. This ensures the blocking and context switching may complete
+before another thread completes the same operations within timer_sleep().
+
 
 >> A5: How are race conditions avoided when a timer interrupt occurs
 >> during a call to timer_sleep()?
+
+Interrupts are disabled upon entering the timer_sleep() method.  This ensures we can properly block the
+thread and schedule the next thread to run.  This would lead to issues with proper scheduling if interrupts were enabled.
+In the case where multiple threads call schedule(), interrupts would be disabled once the first thread reaches this function.
+Since the schedule() functionality must ensure the previous thread is stopped and then start the next thread, it is critical that
+this functionality is not interrupted.  
 
 
 ---- RATIONALE ----
@@ -54,7 +93,12 @@ FirstName LastName <email@k-state.edu>
 >> A6: Why did you choose this design?  In what ways is it superior to
 >> other designs that you considered?
 
-
+This design was one of the most minimalistic designs possible, as it mostly takes advantage of existing functionality and only adds
+one new attribute to the thread struct.  The design is simple, as it simply checks blocked threads on every tick and decrements the 
+remaining blocked time.  Another design which was considered involved creating a queue of blocked threads from scratch, and including details
+about why each thread was blocked (sleeping, etc.).  This ultimately was unnecessary as the thread_foreach() function efficiently iterates
+through all threads and calls the function which we pass in.  This design is simple to understand, adds minimal extra code, and utilizes 
+existing functionality.
 
              PRIORITY SCHEDULING
              ===================
