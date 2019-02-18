@@ -100,7 +100,8 @@ scratch, and including details about why each thread was blocked (sleeping, etc.
 utilizing the thread_foreach() function iterates through all threads and calls the function which we pass in.  This design is 
 simple to understand, adds minimal extra code, and utilizes existing functionality.
 
-             PRIORITY SCHEDULING
+
+              PRIORITY SCHEDULING
              ===================
 
 ---- DATA STRUCTURES ----
@@ -109,7 +110,23 @@ simple to understand, adds minimal extra code, and utilizes existing functionali
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+We added the following members to struct thread
+	int base_priority
+	- This is to record the base priority when there are multiple threads occurring in main the thread
+	struct list locks
+	- Locks that the thread is holding
+	struct lock *lock_waiting
+	- The lock that the thread is waiting for. The acquired lock that thread is trying to acquire.
+
+We added the following members to struct lock:
+  struct list_elem elem
+  - a list where we store our priority donation
+  int max_prioriy
+  - Max priority among the threads acquiring the lock
+
 >> B2: Explain the data structure used to track priority donation.
+  - We're using list data structure to store priority donation of threads in the program.
+  We used a list to keep in track of donations when multiple donations occurs.
 
 
 ---- ALGORITHMS ----
@@ -117,11 +134,37 @@ simple to understand, adds minimal extra code, and utilizes existing functionali
 >> B3: How do you ensure that the highest priority thread waiting for
 >> a lock, semaphore, or condition variable wakes up first?
 
+In a situation where there's no lock, semaphore, or condition variable, whichever thread that has higher
+ priority will first executes. When one of those three situations do occur, the thread with higher priority
+ will donate its priority to the thread it's competing with lower priority. The lower priority thread will take
+ the higher-priority thread's priority to execute lower-priority thread's work and return higher-priority thread's
+  priority back hi-priority thread after the lower-priority  thread is done by either release lock, sema_down, or etc.
+
 >> B4: Describe the sequence of events when a call to lock_acquire()
 >> causes a priority donation.  How is nested donation handled?
 
+1) First we check if there's an existing holder for the lock and not thread_mlfqs
+2) If there is existing lock holder, we record the lock for waiting
+3) Then, we use a while loop with condition that there's a lock and the lock's priority is lower than
+the current thread's priority, then it will replace the lock's maximum priority to current thread's and donate
+the current thread's priority to the lock holder.
+4) After the while loop, we'll down the semaphore if there's a semaphore condition.
+5) We disable the interrupt and set the current holder of lock to current thread.
+
+We used the while loop in lock_acquire() to achieve the priority donation and handle nested donation.
+The step 3 above has details of implementation.
+
 >> B5: Describe the sequence of events when lock_release() is called
 >> on a lock that a higher-priority thread is waiting for.
+
+1) First we check thread_mlfqs whether it's true or false. If it's false, we call
+thread_remove_lock function to remove the lock from method argument.
+2) For our lock removing process, we first disable interrupt.
+3) We remove the lock's priority donation.
+4) We update the current thread's priority back.
+
+In the situation of a lock that a higher-priority thread is waiting for, we will bring back the
+higher-priority thread's priority after we remove the lock.
 
 ---- SYNCHRONIZATION ----
 
@@ -129,10 +172,20 @@ simple to understand, adds minimal extra code, and utilizes existing functionali
 >> how your implementation avoids it.  Can you use a lock to avoid
 >> this race?
 
+if there were bunch of threads there waiting to set new priority got from multiple donation. those donation's
+difference can be a bad thing for threads been donated to check which donation has the most priority. which might
+cause a race problem. to avoid this, we put extra code inside thread_set_priority() we check if the priority was
+big enough to replace current. I think we can use a lock to avoid it, but we need more structure inside thread to
+keep track of how the current lock's priority is.
+
 ---- RATIONALE ----
 
 >> B7: Why did you choose this design?  In what ways is it superior to
 >> another design you considered?
+
+The other design we considered was higher priority always goes execute first, which could cause thread starvation. Therefore,
+our design is better because it processes the lower-priority thread first as long as it acquires the priority condition first.
+
 
 
               ADVANCED SCHEDULER [EXTRA CREDIT]
