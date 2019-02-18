@@ -90,7 +90,7 @@ Interrupts are disabled upon entering the timer_sleep() method.  This ensures we
 thread and schedule the next thread to run.  This would lead to issues with proper scheduling if interrupts were enabled.
 In the case where multiple threads call schedule(), interrupts would be disabled once the first thread reaches this function.
 Since the schedule() functionality must ensure the previous thread is stopped and then start the next thread, it is critical 
-thatthis functionality is not interrupted.  
+that this functionality is not interrupted.  
 
 
 ---- RATIONALE ----
