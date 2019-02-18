@@ -5,8 +5,10 @@ CIS 520 - Programming Project #1
 ---- GROUP ----
 
 >> Fill in the names and email addresses of your group members.
-
 Jared Wolfe wolfejar@ksu.edu
+Jie Zheng Jayie21@ksu.edu
+Fubin Luan Fubin@ksu.edu
+
 
 ---- PRELIMINARIES ----
 
@@ -17,6 +19,9 @@ Jared Wolfe wolfejar@ksu.edu
 >> preparing your submission, other than the Pintos documentation,
 >> course text, lecture notes, and course staff.
 
+Citation(You might see unreadable code for our citation because it's Chinese web source):
+
+Pintos-斯坦福大学操作系统Project详解-Project1. (n.d.). Retrieved from https://blog.csdn.net/u013058160/article/details/45393555
 
                  ALARM CLOCK
                  ===========
